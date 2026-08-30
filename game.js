@@ -1,33 +1,39 @@
-// ======================================
-// MYSTERY ISLAND 3D
-// ======================================
+// ==========================================
+// MYSTERY ISLAND 3D - ENVIRONMENT UPGRADE
+// ==========================================
 
 const scene = new THREE.Scene();
 
-scene.background = new THREE.Color(0x87ceeb);
+scene.background = new THREE.Color(0x8fd3ff);
+
+scene.fog = new THREE.FogExp2(
+    0x8fd3ff,
+    0.006
+);
 
 
-// ======================================
+// ==========================================
 // CAMERA
-// ======================================
+// ==========================================
 
 const camera = new THREE.PerspectiveCamera(
     60,
     window.innerWidth / window.innerHeight,
     0.1,
-    5000
+    2000
 );
 
-camera.position.set(0, 18, 25);
+camera.position.set(0, 12, 22);
 
 
-// ======================================
+// ==========================================
 // RENDERER
-// ======================================
+// ==========================================
 
-const renderer = new THREE.WebGLRenderer({
-    antialias: true
-});
+const renderer =
+    new THREE.WebGLRenderer({
+        antialias: true
+    });
 
 renderer.setSize(
     window.innerWidth,
@@ -35,60 +41,80 @@ renderer.setSize(
 );
 
 renderer.setPixelRatio(
-    Math.min(window.devicePixelRatio, 2)
+    Math.min(window.devicePixelRatio, 1.5)
 );
 
 renderer.shadowMap.enabled = true;
 
-document.getElementById("game").appendChild(
-    renderer.domElement
+renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+renderer.outputColorSpace =
+    THREE.SRGBColorSpace;
+
+document
+    .getElementById("game")
+    .appendChild(renderer.domElement);
+
+
+// ==========================================
+// LIGHT
+// ==========================================
+
+const sun =
+    new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+sun.position.set(
+    -100,
+    180,
+    80
 );
 
+sun.castShadow = true;
 
-// ======================================
-// LIGHTING
-// ======================================
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
 
-const sunlight = new THREE.DirectionalLight(
-    0xffffff,
-    2
-);
+sun.shadow.camera.left = -150;
+sun.shadow.camera.right = 150;
+sun.shadow.camera.top = 150;
+sun.shadow.camera.bottom = -150;
 
-sunlight.position.set(
-    100,
-    200,
-    100
-);
-
-sunlight.castShadow = true;
-
-scene.add(sunlight);
+scene.add(sun);
 
 
-const ambientLight = new THREE.HemisphereLight(
-    0x87ceeb,
-    0x31572c,
-    1.5
-);
+const skyLight =
+    new THREE.HemisphereLight(
+        0x9bdcff,
+        0x345b35,
+        2
+    );
 
-scene.add(ambientLight);
+scene.add(skyLight);
 
 
-// ======================================
+// ==========================================
 // OCEAN
-// ======================================
+// ==========================================
 
 const oceanGeometry =
     new THREE.PlaneGeometry(
-        4000,
-        4000
+        2000,
+        2000,
+        100,
+        100
     );
 
 const oceanMaterial =
     new THREE.MeshStandardMaterial({
-        color: 0x2196d3,
-        roughness: 0.5,
-        metalness: 0
+        color: 0x167fc1,
+        roughness: 0.15,
+        metalness: 0.05,
+        transparent: true,
+        opacity: 0.92
     });
 
 const ocean =
@@ -97,253 +123,254 @@ const ocean =
         oceanMaterial
     );
 
-ocean.rotation.x = -Math.PI / 2;
+ocean.rotation.x =
+    -Math.PI / 2;
 
-ocean.position.y = -1;
+ocean.position.y = -2;
 
 scene.add(ocean);
 
 
-// ======================================
-// ISLAND
-// ======================================
+// ==========================================
+// ISLAND TERRAIN
+// ==========================================
 
-const islandGeometry =
-    new THREE.CylinderGeometry(
-        80,
-        90,
-        5,
-        64
+const terrainSize = 150;
+
+const terrainGeometry =
+    new THREE.PlaneGeometry(
+        terrainSize,
+        terrainSize,
+        100,
+        100
     );
 
-const islandMaterial =
+const terrainMaterial =
     new THREE.MeshStandardMaterial({
-        color: 0x63b75d,
-        roughness: 0.9
+        color: 0x5e9f4c,
+        roughness: 0.95
     });
 
-const island =
+const terrain =
     new THREE.Mesh(
-        islandGeometry,
-        islandMaterial
+        terrainGeometry,
+        terrainMaterial
     );
 
-island.position.y = 1.5;
+terrain.rotation.x =
+    -Math.PI / 2;
 
-island.receiveShadow = true;
+terrain.receiveShadow = true;
 
-scene.add(island);
+scene.add(terrain);
 
 
-// ======================================
-// SAND
-// ======================================
+// ==========================================
+// TERRAIN HEIGHTS
+// ==========================================
 
-const sandGeometry =
-    new THREE.CylinderGeometry(
-        84,
-        94,
-        1,
-        64
+const vertices =
+    terrainGeometry.attributes.position;
+
+for (
+    let i = 0;
+    i < vertices.count;
+    i++
+) {
+
+    const x =
+        vertices.getX(i);
+
+    const z =
+        vertices.getY(i);
+
+    const distance =
+        Math.sqrt(
+            x * x +
+            z * z
+        );
+
+    let height = 0;
+
+    if (distance < 55) {
+
+        height =
+            Math.sin(x * 0.08) *
+            1.2 +
+
+            Math.cos(z * 0.09) *
+            1.1;
+
+        height +=
+            Math.sin(
+                (x + z) * 0.04
+            ) * 2;
+    }
+
+    if (distance < 35) {
+
+        height +=
+            2.5 *
+            Math.exp(
+                -(distance * distance) /
+                1200
+            );
+    }
+
+    vertices.setZ(
+        i,
+        Math.max(
+            height,
+            -0.5
+        )
+    );
+}
+
+vertices.needsUpdate = true;
+
+terrainGeometry.computeVertexNormals();
+
+
+// ==========================================
+// BEACH
+// ==========================================
+
+const beachGeometry =
+    new THREE.RingGeometry(
+        55,
+        75,
+        96
     );
 
-const sandMaterial =
+const beachMaterial =
     new THREE.MeshStandardMaterial({
-        color: 0xe7d28c
+        color: 0xe6d19a,
+        roughness: 1
     });
 
-const sand =
+const beach =
     new THREE.Mesh(
-        sandGeometry,
-        sandMaterial
+        beachGeometry,
+        beachMaterial
     );
 
-sand.position.y = 4;
+beach.rotation.x =
+    -Math.PI / 2;
 
-scene.add(sand);
+beach.position.y =
+    -0.25;
 
-
-// ======================================
-// PLAYER
-// ======================================
-
-const player = new THREE.Group();
+scene.add(beach);
 
 
-// Body
+// ==========================================
+// ROCK CREATOR
+// ==========================================
 
-const bodyGeometry =
-    new THREE.SphereGeometry(
-        1.5,
-        24,
-        24
-    );
-
-const bodyMaterial =
-    new THREE.MeshStandardMaterial({
-        color: 0xffcc66
-    });
-
-const body =
-    new THREE.Mesh(
-        bodyGeometry,
-        bodyMaterial
-    );
-
-body.position.y = 2;
-
-body.castShadow = true;
-
-player.add(body);
-
-
-// Head
-
-const headGeometry =
-    new THREE.SphereGeometry(
-        1.2,
-        24,
-        24
-    );
-
-const headMaterial =
-    new THREE.MeshStandardMaterial({
-        color: 0xffd28a
-    });
-
-const head =
-    new THREE.Mesh(
-        headGeometry,
-        headMaterial
-    );
-
-head.position.y = 4;
-
-head.castShadow = true;
-
-player.add(head);
-
-
-// Hat
-
-const hatGeometry =
-    new THREE.CylinderGeometry(
-        1.4,
-        1.6,
-        0.8,
-        24
-    );
-
-const hatMaterial =
-    new THREE.MeshStandardMaterial({
-        color: 0x7b4f2c
-    });
-
-const hat =
-    new THREE.Mesh(
-        hatGeometry,
-        hatMaterial
-    );
-
-hat.position.y = 5.2;
-
-hat.castShadow = true;
-
-player.add(hat);
-
-
-player.position.set(
-    0,
-    0,
-    0
-);
-
-scene.add(player);
-
-
-// ======================================
-// TREASURES
-// ======================================
-
-const treasures = [];
-
-const treasurePositions = [
-    [-35, 0, -25],
-    [35, 0, -15],
-    [-25, 0, 30],
-    [30, 0, 35],
-    [0, 0, 50]
-];
-
-
-function createTreasure(x, y, z) {
+function createRock(
+    x,
+    y,
+    z,
+    scale
+) {
 
     const geometry =
-        new THREE.OctahedronGeometry(
-            1.2,
-            0
+        new THREE.DodecahedronGeometry(
+            1,
+            1
         );
 
     const material =
         new THREE.MeshStandardMaterial({
-            color: 0x00ffff,
-            emissive: 0x004444
+            color: 0x5d625e,
+            roughness: 1
         });
 
-    const treasure =
+    const rock =
         new THREE.Mesh(
             geometry,
             material
         );
 
-    treasure.position.set(
+    rock.position.set(
         x,
-        y + 2,
+        y,
         z
     );
 
-    treasure.castShadow = true;
+    rock.scale.set(
+        scale * 1.4,
+        scale,
+        scale * 0.9
+    );
 
-    treasure.userData.found = false;
+    rock.rotation.y =
+        Math.random() * Math.PI;
 
-    scene.add(treasure);
+    rock.castShadow = true;
 
-    treasures.push(treasure);
+    rock.receiveShadow = true;
+
+    scene.add(rock);
 }
 
 
-for (const position of treasurePositions) {
+// ==========================================
+// ROCKS
+// ==========================================
 
-    createTreasure(
-        position[0],
-        position[1],
-        position[2]
+for (
+    let i = 0;
+    i < 35;
+    i++
+) {
+
+    const angle =
+        Math.random() *
+        Math.PI * 2;
+
+    const radius =
+        35 +
+        Math.random() * 38;
+
+    createRock(
+        Math.cos(angle) * radius,
+        0.8,
+        Math.sin(angle) * radius,
+        0.5 +
+        Math.random() * 1.5
     );
 }
 
 
-// ======================================
-// TREES
-// ======================================
+// ==========================================
+// PALM TREE
+// ==========================================
 
-function createTree(x, z) {
+function createPalm(
+    x,
+    z,
+    scale = 1
+) {
 
-    const tree = new THREE.Group();
+    const tree =
+        new THREE.Group();
 
 
-    // Trunk
+    // trunk
 
     const trunkGeometry =
         new THREE.CylinderGeometry(
-            0.5,
-            0.7,
-            4,
+            0.35,
+            0.65,
+            8,
             12
         );
 
     const trunkMaterial =
         new THREE.MeshStandardMaterial({
-            color: 0x7b4f2c
+            color: 0x76502d,
+            roughness: 1
         });
 
     const trunk =
@@ -352,38 +379,53 @@ function createTree(x, z) {
             trunkMaterial
         );
 
-    trunk.position.y = 5;
+    trunk.position.y = 4;
 
     trunk.castShadow = true;
 
     tree.add(trunk);
 
 
-    // Leaves
+    // leaves
 
-    const leavesGeometry =
-        new THREE.SphereGeometry(
-            3,
-            16,
-            16
-        );
-
-    const leavesMaterial =
+    const leafMaterial =
         new THREE.MeshStandardMaterial({
-            color: 0x2f8f46
+            color: 0x247a3a,
+            roughness: 0.8,
+            side: THREE.DoubleSide
         });
 
-    const leaves =
-        new THREE.Mesh(
-            leavesGeometry,
-            leavesMaterial
-        );
 
-    leaves.position.y = 8;
+    for (
+        let i = 0;
+        i < 9;
+        i++
+    ) {
 
-    leaves.castShadow = true;
+        const leaf =
+            new THREE.Mesh(
+                new THREE.ConeGeometry(
+                    0.35,
+                    5.5,
+                    6
+                ),
+                leafMaterial
+            );
 
-    tree.add(leaves);
+        leaf.position.y = 8;
+
+        leaf.rotation.z =
+            Math.PI / 2.7;
+
+        leaf.rotation.y =
+            (Math.PI * 2 / 9) * i;
+
+        leaf.translateZ(2);
+
+        leaf.castShadow = true;
+
+        tree.add(leaf);
+    }
 
 
     tree.position.set(
@@ -392,86 +434,93 @@ function createTree(x, z) {
         z
     );
 
+    tree.scale.setScalar(scale);
+
     scene.add(tree);
 }
 
 
-const treePositions = [
-    [-55, -45],
-    [-25, -55],
-    [20, -50],
-    [50, -40],
-    [-60, 0],
-    [55, 5],
-    [-50, 45],
-    [-20, 55],
-    [25, 50],
-    [55, 45]
+// ==========================================
+// PALMS
+// ==========================================
+
+const palmLocations = [
+    [-48, -35],
+    [-35, -48],
+    [-15, -58],
+    [15, -58],
+    [40, -48],
+    [55, -20],
+    [58, 20],
+    [48, 40],
+    [-48, 38],
+    [-58, 10],
+    [-42, 10],
+    [35, 15]
 ];
 
+for (
+    const location of palmLocations
+) {
 
-for (const position of treePositions) {
-
-    createTree(
-        position[0],
-        position[1]
+    createPalm(
+        location[0],
+        location[1],
+        0.8 +
+        Math.random() * 0.5
     );
 }
 
 
-// ======================================
+// ==========================================
 // HOUSE
-// ======================================
+// ==========================================
 
-function createHouse() {
+function createHouse(
+    x,
+    z
+) {
 
-    const house = new THREE.Group();
+    const house =
+        new THREE.Group();
 
 
-    const wallGeometry =
-        new THREE.BoxGeometry(
-            12,
-            7,
-            10
-        );
-
-    const wallMaterial =
-        new THREE.MeshStandardMaterial({
-            color: 0xf2d6a2
-        });
-
-    const walls =
+    const wall =
         new THREE.Mesh(
-            wallGeometry,
-            wallMaterial
+            new THREE.BoxGeometry(
+                12,
+                6,
+                10
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xc89b68,
+                roughness: 0.9
+            })
         );
 
-    walls.position.y = 7;
+    wall.position.y = 4;
 
-    walls.castShadow = true;
+    wall.castShadow = true;
 
-    house.add(walls);
+    wall.receiveShadow = true;
 
+    house.add(wall);
 
-    const roofGeometry =
-        new THREE.ConeGeometry(
-            9,
-            5,
-            4
-        );
-
-    const roofMaterial =
-        new THREE.MeshStandardMaterial({
-            color: 0xc95c54
-        });
 
     const roof =
         new THREE.Mesh(
-            roofGeometry,
-            roofMaterial
+            new THREE.ConeGeometry(
+                9,
+                5,
+                4
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x6d3828,
+                roughness: 1
+            })
         );
 
-    roof.position.y = 13;
+    roof.position.y = 9.5;
 
     roof.rotation.y =
         Math.PI / 4;
@@ -481,27 +530,259 @@ function createHouse() {
     house.add(roof);
 
 
-    house.position.set(
-        -20,
+    // door
+
+    const door =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                2.2,
+                3.5,
+                0.25
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x3d2416
+            })
+        );
+
+    door.position.set(
         0,
-        -5
+        2,
+        5.1
+    );
+
+    house.add(door);
+
+
+    house.position.set(
+        x,
+        0,
+        z
     );
 
     scene.add(house);
 }
 
-createHouse();
+createHouse(
+    -18,
+    -10
+);
 
 
-// ======================================
-// MOVEMENT
-// ======================================
+// ==========================================
+// TREASURE CHEST
+// ==========================================
+
+function createChest(
+    x,
+    z
+) {
+
+    const chest =
+        new THREE.Group();
+
+
+    const box =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                2.8,
+                1.7,
+                2
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x6b3d1f,
+                roughness: 0.75
+            })
+        );
+
+    box.position.y = 1.2;
+
+    box.castShadow = true;
+
+    chest.add(box);
+
+
+    const lid =
+        new THREE.Mesh(
+            new THREE.CylinderGeometry(
+                1.0,
+                1.0,
+                2.8,
+                16,
+                false,
+                0,
+                Math.PI
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0x7d4a23
+            })
+        );
+
+    lid.rotation.z =
+        Math.PI / 2;
+
+    lid.position.y = 2.05;
+
+    lid.castShadow = true;
+
+    chest.add(lid);
+
+
+    // gold lock
+
+    const lock =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                0.45,
+                0.55,
+                0.15
+            ),
+            new THREE.MeshStandardMaterial({
+                color: 0xffd84d,
+                metalness: 0.8,
+                roughness: 0.25
+            })
+        );
+
+    lock.position.set(
+        0,
+        1.5,
+        1.05
+    );
+
+    chest.add(lock);
+
+
+    chest.position.set(
+        x,
+        0,
+        z
+    );
+
+    scene.add(chest);
+
+    return chest;
+}
+
+
+// ==========================================
+// TREASURES
+// ==========================================
+
+const treasureLocations = [
+    [-32, -20],
+    [30, -28],
+    [-25, 28],
+    [32, 30],
+    [5, 42]
+];
+
+const chests = [];
+
+for (
+    const location of treasureLocations
+) {
+
+    chests.push(
+        createChest(
+            location[0],
+            location[1]
+        )
+    );
+}
+
+
+// ==========================================
+// PLAYER
+// ==========================================
+
+const player =
+    new THREE.Group();
+
+
+const body =
+    new THREE.Mesh(
+        new THREE.CapsuleGeometry(
+            0.75,
+            1.7,
+            8,
+            16
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0x285b8f,
+            roughness: 0.8
+        })
+    );
+
+body.position.y = 2;
+
+body.castShadow = true;
+
+player.add(body);
+
+
+const head =
+    new THREE.Mesh(
+        new THREE.SphereGeometry(
+            0.75,
+            24,
+            24
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0xc98963,
+            roughness: 0.8
+        })
+    );
+
+head.position.y = 3.65;
+
+head.castShadow = true;
+
+player.add(head);
+
+
+// backpack
+
+const backpack =
+    new THREE.Mesh(
+        new THREE.BoxGeometry(
+            1.15,
+            1.5,
+            0.55
+        ),
+        new THREE.MeshStandardMaterial({
+            color: 0x4b2f1f
+        })
+    );
+
+backpack.position.set(
+    0,
+    2.2,
+    0.8
+);
+
+backpack.castShadow = true;
+
+player.add(backpack);
+
+
+player.position.set(
+    0,
+    0,
+    10
+);
+
+scene.add(player);
+
+
+// ==========================================
+// CONTROLS
+// ==========================================
 
 const keys = {};
 
 window.addEventListener(
     "keydown",
-    function(event) {
+    event => {
 
         keys[
             event.key.toLowerCase()
@@ -509,10 +790,9 @@ window.addEventListener(
     }
 );
 
-
 window.addEventListener(
     "keyup",
-    function(event) {
+    event => {
 
         keys[
             event.key.toLowerCase()
@@ -521,18 +801,24 @@ window.addEventListener(
 );
 
 
-// ======================================
+// ==========================================
 // TOUCH CONTROLS
-// ======================================
+// ==========================================
 
-function setupControl(id, key) {
+function setupButton(
+    id,
+    key
+) {
 
     const button =
         document.getElementById(id);
 
+    if (!button) return;
+
+
     button.addEventListener(
         "pointerdown",
-        function(event) {
+        event => {
 
             event.preventDefault();
 
@@ -540,9 +826,10 @@ function setupControl(id, key) {
         }
     );
 
+
     button.addEventListener(
         "pointerup",
-        function(event) {
+        event => {
 
             event.preventDefault();
 
@@ -550,17 +837,10 @@ function setupControl(id, key) {
         }
     );
 
+
     button.addEventListener(
         "pointercancel",
-        function() {
-
-            keys[key] = false;
-        }
-    );
-
-    button.addEventListener(
-        "pointerleave",
-        function() {
+        () => {
 
             keys[key] = false;
         }
@@ -568,24 +848,35 @@ function setupControl(id, key) {
 }
 
 
-setupControl("joystickUp", "w");
-setupControl("joystickDown", "s");
-setupControl("joystickLeft", "a");
-setupControl("joystickRight", "d");
+setupButton(
+    "joystickUp",
+    "w"
+);
+
+setupButton(
+    "joystickDown",
+    "s"
+);
+
+setupButton(
+    "joystickLeft",
+    "a"
+);
+
+setupButton(
+    "joystickRight",
+    "d"
+);
 
 
-// ======================================
-// GAME VARIABLES
-// ======================================
+// ==========================================
+// GAME
+// ==========================================
 
 let treasureCount = 0;
 
-const speed = 0.35;
+const speed = 0.28;
 
-
-// ======================================
-// UPDATE
-// ======================================
 
 function update() {
 
@@ -596,33 +887,25 @@ function update() {
     if (
         keys["w"] ||
         keys["arrowup"]
-    ) {
-        dz -= 1;
-    }
+    ) dz -= 1;
 
 
     if (
         keys["s"] ||
         keys["arrowdown"]
-    ) {
-        dz += 1;
-    }
+    ) dz += 1;
 
 
     if (
         keys["a"] ||
         keys["arrowleft"]
-    ) {
-        dx -= 1;
-    }
+    ) dx -= 1;
 
 
     if (
         keys["d"] ||
         keys["arrowright"]
-    ) {
-        dx += 1;
-    }
+    ) dx += 1;
 
 
     if (
@@ -655,19 +938,15 @@ function update() {
     }
 
 
-    // Island boundary
+    // island boundary
 
     const distance =
         Math.sqrt(
-            player.position.x *
-            player.position.x +
-
-            player.position.z *
-            player.position.z
+            player.position.x ** 2 +
+            player.position.z ** 2
         );
 
-
-    if (distance > 72) {
+    if (distance > 63) {
 
         const angle =
             Math.atan2(
@@ -676,31 +955,35 @@ function update() {
             );
 
         player.position.x =
-            Math.cos(angle) * 72;
+            Math.cos(angle) * 63;
 
         player.position.z =
-            Math.sin(angle) * 72;
+            Math.sin(angle) * 63;
     }
 
 
-    // Treasure collection
+    // treasure collection
 
     for (
-        const treasure of treasures
+        let i = 0;
+        i < chests.length;
+        i++
     ) {
 
-        if (treasure.userData.found) {
+        const chest =
+            chests[i];
+
+        if (!chest.visible)
             continue;
-        }
 
 
         const dx =
             player.position.x -
-            treasure.position.x;
+            chest.position.x;
 
         const dz =
             player.position.z -
-            treasure.position.z;
+            chest.position.z;
 
 
         const distance =
@@ -710,13 +993,9 @@ function update() {
             );
 
 
-        if (distance < 4) {
+        if (distance < 3.5) {
 
-            treasure.userData.found =
-                true;
-
-            treasure.visible =
-                false;
+            chest.visible = false;
 
             treasureCount++;
 
@@ -725,70 +1004,70 @@ function update() {
                 "treasure"
             ).textContent =
                 "💎 Treasures: " +
-                treasureCount;
+                treasureCount +
+                " / 5";
 
 
             document.getElementById(
                 "message"
             ).textContent =
-                "🎉 Treasure discovered!";
-        }
-    }
-
-
-    // Camera follow
-
-    camera.position.x =
-        player.position.x;
-
-    camera.position.z =
-        player.position.z + 25;
-
-    camera.position.y = 18;
-
-
-    camera.lookAt(
-        player.position.x,
-        2,
-        player.position.z
-    );
-
-
-    // Rotate treasures
-
-    for (
-        const treasure of treasures
-    ) {
-
-        if (
-            !treasure.userData.found
-        ) {
-
-            treasure.rotation.y +=
-                0.03;
-
-            treasure.rotation.x +=
-                0.01;
+                "💎 Treasure discovered!";
         }
     }
 
 
     if (
-        treasureCount ===
-        treasures.length
+        treasureCount === 5
     ) {
 
         document.getElementById(
             "message"
         ).textContent =
-            "🏆 You found all the treasures!";
+            "🏆 Amazing! You found all 5 treasures!";
     }
+
+
+    // camera
+
+    const desiredX =
+        player.position.x;
+
+    const desiredZ =
+        player.position.z + 18;
+
+
+    camera.position.x +=
+        (
+            desiredX -
+            camera.position.x
+        ) * 0.08;
+
+
+    camera.position.z +=
+        (
+            desiredZ -
+            camera.position.z
+        ) * 0.08;
+
+
+    camera.position.y +=
+        (
+            13 -
+            camera.position.y
+        ) * 0.08;
+
+
+    camera.lookAt(
+        player.position.x,
+        2.5,
+        player.position.z
+    );
 }
 
 
-// ======================================
+// ==========================================
 // ANIMATION
-// ======================================
+// ==========================================
 
 function animate() {
 
@@ -796,7 +1075,35 @@ function animate() {
         animate
     );
 
+
+    // subtle ocean movement
+
+    const time =
+        performance.now() * 0.001;
+
+
+    ocean.position.y =
+        -2 +
+        Math.sin(time) * 0.08;
+
+
+    // chest glow-like movement
+
+    for (
+        const chest of chests
+    ) {
+
+        if (chest.visible) {
+
+            chest.rotation.y =
+                Math.sin(time * 0.5) *
+                0.015;
+        }
+    }
+
+
     update();
+
 
     renderer.render(
         scene,
@@ -805,13 +1112,13 @@ function animate() {
 }
 
 
-// ======================================
+// ==========================================
 // RESIZE
-// ======================================
+// ==========================================
 
 window.addEventListener(
     "resize",
-    function() {
+    () => {
 
         camera.aspect =
             window.innerWidth /
@@ -827,12 +1134,20 @@ window.addEventListener(
 );
 
 
-// ======================================
+// ==========================================
 // START
-// ======================================
+// ==========================================
 
-document.getElementById(
-    "loading"
-).style.display = "none";
+const loading =
+    document.getElementById(
+        "loading"
+    );
+
+if (loading) {
+
+    loading.style.display =
+        "none";
+}
+
 
 animate();
